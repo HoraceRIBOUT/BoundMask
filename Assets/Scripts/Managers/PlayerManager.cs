@@ -50,6 +50,7 @@ public class PlayerManager : MonoBehaviour
     
     [Header("Part")]
     public Rigidbody2D _rgbd;
+    public AnimationHandler animationHandler;
 
     [Header("Debug")]
     public GameObject debugTriangleRight;
@@ -254,10 +255,12 @@ public class PlayerManager : MonoBehaviour
         if (/*_rgbd.velocity.x*/xVal > 0)
         {
             directionRight = true;
+            animationHandler.ChangeDirection(directionRight);
         }
         else if (/*_rgbd.velocity.x*/xVal < 0)
         {
             directionRight = false;
+            animationHandler.ChangeDirection(directionRight);
         }
     }
 
@@ -357,8 +360,16 @@ public class PlayerManager : MonoBehaviour
         if (skipOn)
             QuitSkip();
 
+        animationHandler.ChangeOutch(true);
+
         _StopMove();
         _rgbd.AddForce(new Vector2(impulse.x * (directionRight ? -1 : 1), impulse.y), ForceMode2D.Impulse);
+
+        Invoke("EndOutch", 0.4f);
+    }
+    public void EndOutch()
+    {
+        animationHandler.ChangeOutch(false);
     }
 
     #endregion
