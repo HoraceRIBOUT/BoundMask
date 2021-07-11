@@ -1,19 +1,27 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Sirenix.OdinInspector;
 
 public class PlayerManager : MonoBehaviour
 {
     [Header("Mapping")]
+    [FoldoutGroup("Mapping")]
     public string moveXAxisName = "Horizontal";
+    [FoldoutGroup("Mapping")]
     public string moveYAxisName = "Vertical";
+    [FoldoutGroup("Mapping")]
     public List<KeyCode> jumpKey = new List<KeyCode> { KeyCode.Z        , KeyCode.UpArrow       };
+    [FoldoutGroup("Mapping")]
     public List<KeyCode> dropKey = new List<KeyCode> { KeyCode.S        , KeyCode.DownArrow     };
+    [FoldoutGroup("Mapping")]
     public List<KeyCode> dashKey = new List<KeyCode> { KeyCode.Space    };
+    [FoldoutGroup("Mapping")]
     public List<KeyCode> skipKey = new List<KeyCode> { KeyCode.Return   };
 
 
     [Header("Upgrades")]
+    [FoldoutGroup("Upgrades")]
     public bool refuelBattery_Upgrade = false;
 
     [Header("Battery")]
@@ -21,31 +29,59 @@ public class PlayerManager : MonoBehaviour
     public float maxBattery = 1;
 
     [Header("Movement")]
+    [FoldoutGroup("Movement")]
     public float verticalSpeedDelta = 1;
+    [FoldoutGroup("Movement")]
     public float verticalAerialSpeedDelta = 1;
+    [FoldoutGroup("Movement")]
     public float verticalSpeedMax = 200;
+    [FoldoutGroup("Movement")]
     public float maximalDownSpeed = -5;
+    [FoldoutGroup("Movement")]
     public float dragValue = 0.05f;
+    [FoldoutGroup("Movement")]
     public float dragAerialValue = 0.01f;
 
     public bool directionRight = true;
     public bool onTheAir = true;
 
+    [FoldoutGroup("Movement")]
     public float positionOfYourFeet = 0;
 
+    [FoldoutGroup("Movement")]
     public float basicGravity = 1;
+    [FoldoutGroup("Movement")]
     public float fallGravity = 2;
+
     [Header("Jump")]
+    [FoldoutGroup("Jump")]
     public Vector2 jumpForce = new Vector2(0,5);
+    [FoldoutGroup("Jump")]
+    public List<GameObject> jumpElecGO = new List<GameObject>();
+    [FoldoutGroup("Jump")]
+    public float jumpElecDuration = 0.4f;
+    [FoldoutGroup("Jump")]
+    public AnimationCurve jumpElecCurve = AnimationCurve.Linear(0, 1, 1, 0);
+    private Coroutine jumpElec_Coroutine = null;
     [Header("Dash")]
+    [FoldoutGroup("Dash")]
     public Vector2 dashForce = new Vector2(5,0);
+    [FoldoutGroup("Dash")]
+    public List<GameObject> dashElecGO = new List<GameObject>();
+    [FoldoutGroup("Dash")]
     public float dashDuration = 1f;
+    [FoldoutGroup("Dash")]
     public bool dashOn = false;
     [Header("Drop")]
+    [FoldoutGroup("Drop")]
     public bool dropOn = false;
+    [FoldoutGroup("Drop")]
+    public Vector2 dropForce = new Vector2(0, -3);
     [Header("Skip")]
     [Range(0,1)]
+    [FoldoutGroup("Skip")]
     public float skipBattery = 1;
+    [FoldoutGroup("Skip")]
     public bool skipOn = false;
     
     [Header("Part")]
@@ -94,9 +130,9 @@ public class PlayerManager : MonoBehaviour
         }
 
         //maybe add "yVal" in "canDrop"
-        //if (CanDrop() && Input_Utils.GetKey(dropKey))
+        if (CanDrop() && Input_Utils.GetKeyDown(dropKey))
         {
-            //Drop();
+            Drop();
         }
         
         MovementManagement(xVal);
@@ -109,9 +145,14 @@ public class PlayerManager : MonoBehaviour
     }
     public void Jump(float xVal)
     {
-        Debug.Log("Jumping");
+//        Debug.Log("Jumping");
         currentBattery -= 1; //use one full battery 
         UpdateBatteryUI();
+
+        foreach (GameObject gO in jumpElecGO)
+        {
+            gO.SetActive(true);
+        }
 
         onTheAir = true;
 
@@ -128,6 +169,37 @@ public class PlayerManager : MonoBehaviour
             }
         }
         _rgbd.AddForce(jumpForce, ForceMode2D.Impulse);
+
+        jumpElec_Coroutine = StartCoroutine(Coroutine_CutElecJump());
+    }
+
+    IEnumerator Coroutine_CutElecJump()
+    {
+        float lerp = 0;
+        while (lerp < jumpElecDuration)
+        {
+            lerp += Time.deltaTime;
+            foreach (GameObject gO in jumpElecGO)
+            {
+                gO.transform.localScale = Vector3.one * jumpElecCurve.Evaluate(lerp / jumpElecDuration);
+            }
+            yield return new WaitForSeconds(1 / 60);
+        }
+        CutElecJump();
+        jumpElec_Coroutine = null;
+    }
+
+    void CutElecJump()
+    {
+        if (jumpElec_Coroutine != null)
+        {
+            StopCoroutine(jumpElec_Coroutine);
+            jumpElec_Coroutine = null;
+            foreach (GameObject gO in jumpElecGO)
+            {
+                gO.SetActive(false);
+            }
+        }
     }
     #endregion
 
@@ -145,9 +217,17 @@ public class PlayerManager : MonoBehaviour
 
         if (skipOn)
             QuitSkip();
+        if (dropOn)
+            QuitDrop();
+        CutElecJump();
 
         currentBattery -= 1;
         UpdateBatteryUI();
+
+        foreach (GameObject gO in dashElecGO)
+        {
+            gO.SetActive(true);
+        }
 
         _StopMove();
         _rgbd.AddForce(dashForce * (right ? 1 : -1), ForceMode2D.Impulse);
@@ -180,6 +260,18 @@ public class PlayerManager : MonoBehaviour
         debugTriangleLeft.SetActive(false);
         _rgbd.gravityScale = basicGravity;
         Debug.Log("Dash end : "+_rgbd.velocity);
+
+        foreach(GameObject gO in dashElecGO)
+        {
+            gO.SetActive(false);
+        }
+
+        //Update onTheAir before
+        if (!onTheAir)
+        {
+            OnGround();
+        }
+
     }
     #endregion
 
@@ -188,12 +280,19 @@ public class PlayerManager : MonoBehaviour
     {
         //need to add a delay after a rebound (can't skip too close to a rebound)
         //+ reboun quitSkip
-        return !skipOn;
+        return !skipOn && currentBattery > 1;
     }
     public void Skip()
     {
         if (dashOn)
             QuitDash();
+        if(dropOn)
+            QuitDrop();
+
+        CutElecJump();
+
+        currentBattery -= 1;
+        UpdateBatteryUI();
 
         _StopMove();
         _rgbd.gravityScale = 0;
@@ -203,6 +302,34 @@ public class PlayerManager : MonoBehaviour
     public void QuitSkip()
     {
         skipOn = false;
+        _rgbd.gravityScale = basicGravity;
+    }
+    #endregion
+
+    #region Drop
+    public bool CanDrop()
+    {
+        return !dropOn && onTheAir;
+    }
+    public void Drop()
+    {
+        if (dashOn)
+            QuitDash();
+
+        if (dropOn)
+            QuitDrop();
+        
+        CutElecJump();
+
+        _StopMove();
+        _rgbd.AddForce(dropForce, ForceMode2D.Impulse);
+
+        dropOn = true;
+        //add a timer
+    }
+    public void QuitDrop()
+    {
+        dropOn = false;
         _rgbd.gravityScale = basicGravity;
     }
     #endregion
@@ -219,6 +346,12 @@ public class PlayerManager : MonoBehaviour
             return;
         }
 
+        if (dropOn)
+        {
+            //just don't slow down
+            //_ChangeXMove(dashForce * (directionRight ? 1 : -1));
+            return;
+        }
 
         if (xVal > 0)
         {
@@ -311,6 +444,11 @@ public class PlayerManager : MonoBehaviour
     {
 
     }
+
+    public void EndOutch()
+    {
+        animationHandler.ChangeOutch(false);
+    }
     #endregion
 
     #region Collision
@@ -337,6 +475,9 @@ public class PlayerManager : MonoBehaviour
 
     public void OnGround()
     {
+        if (dropOn)
+            QuitDrop();
+
         currentBattery = maxBattery;
         UpdateBatteryUI();
         onTheAir = false;
@@ -344,9 +485,14 @@ public class PlayerManager : MonoBehaviour
 
     public void Rebound(Vector2 impulse)
     {
+        //Decide if goes trough or rebound ? Rebound for now
+        if (dropOn)
+            QuitDrop();
+
         Rebound(impulse, refuelBattery_Upgrade);
         //wait for the upgravde
     }
+
     public void Rebound(Vector2 impulse, bool refuelBattery)
     {
         if (refuelBattery)
@@ -366,10 +512,6 @@ public class PlayerManager : MonoBehaviour
         _rgbd.AddForce(new Vector2(impulse.x * (directionRight ? -1 : 1), impulse.y), ForceMode2D.Impulse);
 
         Invoke("EndOutch", 0.4f);
-    }
-    public void EndOutch()
-    {
-        animationHandler.ChangeOutch(false);
     }
 
     #endregion
