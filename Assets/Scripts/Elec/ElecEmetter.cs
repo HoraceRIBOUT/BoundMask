@@ -6,7 +6,7 @@ public class ElecEmetter : MonoBehaviour
 {
     public void OnTriggerEnter2D(Collider2D collision)
     {
-        Debug.Log("Ok, trigger " + collision.name);
+        Debug.Log("Ok, " + this.gameObject.name + " trigger " + collision.name, collision.gameObject);
         ElecReceiver elec = collision.GetComponent<ElecReceiver>();
         if(elec != null)
         {

@@ -57,12 +57,7 @@ public class PlayerManager : MonoBehaviour
     [FoldoutGroup("Jump")]
     public Vector2 jumpForce = new Vector2(0,5);
     [FoldoutGroup("Jump")]
-    public List<GameObject> jumpElecGO = new List<GameObject>();
-    [FoldoutGroup("Jump")]
-    public float jumpElecDuration = 0.4f;
-    [FoldoutGroup("Jump")]
-    public AnimationCurve jumpElecCurve = AnimationCurve.Linear(0, 1, 1, 0);
-    private Coroutine jumpElec_Coroutine = null;
+    public GameObject jumpElecGO;
     [Header("Dash")]
     [FoldoutGroup("Dash")]
     public Vector2 dashForce = new Vector2(5,0);
@@ -149,10 +144,7 @@ public class PlayerManager : MonoBehaviour
         currentBattery -= 1; //use one full battery 
         UpdateBatteryUI();
 
-        foreach (GameObject gO in jumpElecGO)
-        {
-            gO.SetActive(true);
-        }
+        Instantiate(jumpElecGO, this.transform.position, Quaternion.identity, null);
 
         onTheAir = true;
 
@@ -169,37 +161,7 @@ public class PlayerManager : MonoBehaviour
             }
         }
         _rgbd.AddForce(jumpForce, ForceMode2D.Impulse);
-
-        jumpElec_Coroutine = StartCoroutine(Coroutine_CutElecJump());
-    }
-
-    IEnumerator Coroutine_CutElecJump()
-    {
-        float lerp = 0;
-        while (lerp < jumpElecDuration)
-        {
-            lerp += Time.deltaTime;
-            foreach (GameObject gO in jumpElecGO)
-            {
-                gO.transform.localScale = Vector3.one * jumpElecCurve.Evaluate(lerp / jumpElecDuration);
-            }
-            yield return new WaitForSeconds(1 / 60);
-        }
-        CutElecJump();
-        jumpElec_Coroutine = null;
-    }
-
-    void CutElecJump()
-    {
-        if (jumpElec_Coroutine != null)
-        {
-            StopCoroutine(jumpElec_Coroutine);
-            jumpElec_Coroutine = null;
-            foreach (GameObject gO in jumpElecGO)
-            {
-                gO.SetActive(false);
-            }
-        }
+        
     }
     #endregion
 
@@ -219,7 +181,6 @@ public class PlayerManager : MonoBehaviour
             QuitSkip();
         if (dropOn)
             QuitDrop();
-        CutElecJump();
 
         currentBattery -= 1;
         UpdateBatteryUI();
@@ -289,8 +250,6 @@ public class PlayerManager : MonoBehaviour
         if(dropOn)
             QuitDrop();
 
-        CutElecJump();
-
         currentBattery -= 1;
         UpdateBatteryUI();
 
@@ -318,8 +277,6 @@ public class PlayerManager : MonoBehaviour
 
         if (dropOn)
             QuitDrop();
-        
-        CutElecJump();
 
         _StopMove();
         _rgbd.AddForce(dropForce, ForceMode2D.Impulse);
