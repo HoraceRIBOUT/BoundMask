@@ -465,8 +465,9 @@ public class PlayerManager : MonoBehaviour
 
         animationHandler.ChangeOutch(true);
 
-        _StopMove();
-        _rgbd.AddForce(new Vector2(impulse.x * (directionRight ? -1 : 1), impulse.y), ForceMode2D.Impulse);
+        _StopYMove();
+        //+ if opposite direction, stop the XMove 
+        _rgbd.AddForce(new Vector2(/*impulse.x * (directionRight ? -1 : 1)*/0, impulse.y), ForceMode2D.Impulse);
 
         Invoke("EndOutch", 0.4f);
     }

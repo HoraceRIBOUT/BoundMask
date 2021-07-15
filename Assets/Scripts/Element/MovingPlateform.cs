@@ -11,7 +11,25 @@ public class MovingPlateform : MonoBehaviour
     Coroutine cyclingOn = null;
 
     //Add a change of parent (if jump == parent null)
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        PlayerManager player = collision.gameObject.GetComponent<PlayerManager>();
+        if (player != null)
+        {
+            //Get Player in your parent
+            player.transform.SetParent(this.transform);
+        }
 
+    }
+    private void OnCollisionExit2D(Collision2D collision)
+    {
+        PlayerManager player = collision.gameObject.GetComponent<PlayerManager>();
+        if (player != null)
+        {
+            //Player become orpheline ! Set is parent to null !
+            player.transform.SetParent(null);
+        }
+    }
 
     private void Start()
     {
